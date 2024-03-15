@@ -4,11 +4,13 @@ using System.Linq;
 using System.Management;
 using System.Text;
 using System.Threading.Tasks;
+using EcsReader;
 
 namespace LicenseChecker
 {
     public static class DeviceInfo
     {
+        private static EcsSpy spy = new EcsSpy();
         public static bool Correct(string serial)
         {
             if (serial == null) return false;
@@ -18,8 +20,26 @@ namespace LicenseChecker
             return (mac + memory + board).Equals(serial);
         }
 
-        public static string SerialNumber
-            => $"{GetMacAddress()}{GetMemorySerialNumber()}{GetMotherBoardSerialNumber()}";
+        public static string SerialNumber()
+        {
+            var serial = $"{spy.GetSerialNumber()}{GetDiskDriveSerial().Trim()}";
+            serial = Convert.ToBase64String(Encoding.UTF8.GetBytes(serial));
+            return serial;
+        }
+
+        public static string GetDiskDriveSerial()
+        {
+            using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_DiskDrive"))
+            {
+                foreach (var info in searcher.Get())
+                {
+                    if (info["SerialNumber"] != null)
+                        return info["SerialNumber"].ToString().Replace("-","");
+                }
+            }
+
+            return string.Empty;
+        }
 
         public static long GetMacAddress()
         {
@@ -60,7 +80,7 @@ namespace LicenseChecker
                     break;
                 }
 
-                return Convert.ToInt64(serial, 16);
+                return Convert.ToInt64(serial.Trim(), 16);
             }
         }
 
@@ -77,7 +97,7 @@ namespace LicenseChecker
                     break;
                 }
 
-                return Convert.ToInt64(serial, 16);
+                return Convert.ToInt64(serial.Trim(), 16);
             }
         }
     }

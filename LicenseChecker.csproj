@@ -52,6 +52,11 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Helper\RsaHelper.cs" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <ProjectReference Include="..\EcsSpy\EcsSpy.csproj">
+      <Project>{9f2a958e-f303-48a8-8358-f1f9f0885cf7}</Project>
+      <Name>EcsSpy</Name>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
