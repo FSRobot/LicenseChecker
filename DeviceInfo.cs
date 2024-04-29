@@ -8,21 +8,18 @@ using EcsReader;
 
 namespace LicenseChecker
 {
-    public static class DeviceInfo
+    public class DeviceInfo
     {
-        private static EcsSpy spy = new EcsSpy();
-        public static bool Correct(string serial)
+        private readonly EcsSpy _spy;
+
+        public DeviceInfo(EcsSpy spy)
         {
-            if (serial == null) return false;
-            var mac = GetMacAddress();
-            var memory = GetMemorySerialNumber();
-            var board = GetMotherBoardSerialNumber();
-            return (mac + memory + board).Equals(serial);
+            _spy = spy;
         }
 
-        public static string SerialNumber()
+        public string SerialNumber()
         {
-            var serial = $"{spy.GetSerialNumber()}{GetDiskDriveSerial().Trim()}";
+            var serial = $"{_spy.GetSerialNumber()}{GetDiskDriveSerial().Trim()}";
             serial = Convert.ToBase64String(Encoding.UTF8.GetBytes(serial));
             return serial;
         }
@@ -34,7 +31,7 @@ namespace LicenseChecker
                 foreach (var info in searcher.Get())
                 {
                     if (info["SerialNumber"] != null)
-                        return info["SerialNumber"].ToString().Replace("-","");
+                        return info["SerialNumber"].ToString().Replace("-", "");
                 }
             }
 
