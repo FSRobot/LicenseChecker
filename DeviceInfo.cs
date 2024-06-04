@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Management;
+using System.Net.Mime;
+using System.Reflection;
 using System.Text;
 using System.Threading.Tasks;
 using EcsReader;
@@ -19,7 +21,7 @@ namespace LicenseChecker
 
         public string SerialNumber()
         {
-            var serial = $"{_spy.GetSerialNumber()}{GetDiskDriveSerial().Trim()}";
+            var serial = $"{_spy.GetSerialNumber()}{Assembly.GetEntryAssembly().GetName().Name}{GetDiskDriveSerial().Trim()}";
             serial = Convert.ToBase64String(Encoding.UTF8.GetBytes(serial));
             return serial;
         }
