@@ -1,103 +1,128 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using ECSCOMLib;
+using System;
 using System.Management;
-using System.Net.Mime;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
-using EcsReader;
 
 namespace LicenseChecker
 {
     public class DeviceInfo
     {
-        private readonly EcsSpy _spy;
-
-        public DeviceInfo(EcsSpy spy)
+        private readonly Cnc _cnc = new Cnc();
+        public DeviceInfo()
         {
-            _spy = spy;
         }
 
         public string SerialNumber()
         {
-            var serial = $"{_spy.GetSerialNumber()}{Assembly.GetEntryAssembly().GetName().Name}{GetDiskDriveSerial().Trim()}";
-            serial = Convert.ToBase64String(Encoding.UTF8.GetBytes(serial));
+            var serial = $"{GetSerialNumber()}{Assembly.GetEntryAssembly().GetName().Name}{GetDiskDriveSerial().Trim()}";
+            serial = Helpers.AesHelper.Encrypt(serial, "MachineCode");
             return serial;
         }
 
+        public int GetSerialNumber()
+        {
+            var serial = _cnc.ECSCNCSerialNumber();
+            return serial;
+        }
         public static string GetDiskDriveSerial()
         {
-            using (var searcher = new ManagementObjectSearcher("SELECT * FROM Win32_DiskDrive"))
-            {
-                foreach (var info in searcher.Get())
-                {
-                    if (info["SerialNumber"] != null)
-                        return info["SerialNumber"].ToString().Replace("-", "");
-                }
-            }
+            WqlObjectQuery wqlQuery =
+                new WqlObjectQuery("SELECT * FROM Win32_LogicalDisk");
+            using ManagementObjectSearcher searcher =
+                new ManagementObjectSearcher(wqlQuery);
 
-            return string.Empty;
-        }
-
-        public static long GetMacAddress()
-        {
-            try
+            bool fund = false;
+            var serialStr = string.Empty;
+            foreach (var o in searcher.Get())
             {
-                string mac = string.Empty;
-                using (ManagementClass mc = new ManagementClass("Win32_NetworkAdapterConfiguration"))
+                var disk = (ManagementObject)o;
+                foreach (PropertyData prop in disk.Properties)
                 {
-                    var list = mc.GetInstances();
-                    foreach (var management in list)
+                    if (prop.Name.Equals("DeviceID") && prop.Value.Equals("C:"))
                     {
-                        if ((bool)management["IPEnabled"] == true)
+                        fund = true;
+                    }
+
+                    if (fund)
+                    {
+                        if (prop.Name.Equals("VolumeSerialNumber")
+                            || prop.Name.Equals("Size")
+                            || prop.Name.Equals("SystemName"))
                         {
-                            mac = management["MacAddress"].ToString();
-                            break;
+                            serialStr += prop.Value.ToString();
                         }
                     }
 
-                    return Convert.ToInt64(mac.Replace(":", ""), 16);
+                    if (fund && prop.Name.Equals("Access"))
+                    {
+                        break;
+                    }
                 }
             }
-            catch
-            {
-                return -1;
-            }
+
+            if (string.IsNullOrWhiteSpace(serialStr))
+                throw new Exception("cannot get machine code!");
+            return serialStr;
         }
 
-        public static long GetMemorySerialNumber()
-        {
-            using (ManagementClass mc = new ManagementClass("Win32_PhysicalMemory"))
-            {
-                var list = mc.GetInstances();
-                var serial = string.Empty;
+        //public static long GetMacAddress()
+        //{
+        //    try
+        //    {
+        //        string mac = string.Empty;
+        //        using (ManagementClass mc = new ManagementClass("Win32_NetworkAdapterConfiguration"))
+        //        {
+        //            var list = mc.GetInstances();
+        //            foreach (var management in list)
+        //            {
+        //                if ((bool)management["IPEnabled"] == true)
+        //                {
+        //                    mac = management["MacAddress"].ToString();
+        //                    break;
+        //                }
+        //            }
 
-                foreach (var management in list)
-                {
-                    serial = management.Properties["SerialNumber"].Value.ToString();
-                    break;
-                }
+        //            return Convert.ToInt64(mac.Replace(":", ""), 16);
+        //        }
+        //    }
+        //    catch
+        //    {
+        //        return -1;
+        //    }
+        //}
 
-                return Convert.ToInt64(serial.Trim(), 16);
-            }
-        }
+        //public static long GetMemorySerialNumber()
+        //{
+        //    using (ManagementClass mc = new ManagementClass("Win32_PhysicalMemory"))
+        //    {
+        //        var list = mc.GetInstances();
+        //        var serial = string.Empty;
 
-        public static long GetMotherBoardSerialNumber()
-        {
-            using (ManagementClass mc = new ManagementClass("Win32_BaseBoard"))
-            {
-                var list = mc.GetInstances();
-                var serial = string.Empty;
+        //        foreach (var management in list)
+        //        {
+        //            serial = management.Properties["SerialNumber"].Value.ToString();
+        //            break;
+        //        }
 
-                foreach (var management in list)
-                {
-                    serial = management.Properties["SerialNumber"].Value.ToString();
-                    break;
-                }
+        //        return Convert.ToInt64(serial.Trim(), 16);
+        //    }
+        //}
 
-                return Convert.ToInt64(serial.Trim(), 16);
-            }
-        }
+        //public static long GetMotherBoardSerialNumber()
+        //{
+        //    using (ManagementClass mc = new ManagementClass("Win32_BaseBoard"))
+        //    {
+        //        var list = mc.GetInstances();
+        //        var serial = string.Empty;
+
+        //        foreach (var management in list)
+        //        {
+        //            serial = management.Properties["SerialNumber"].Value.ToString();
+        //            break;
+        //        }
+
+        //        return Convert.ToInt64(serial.Trim(), 16);
+        //    }
+        //}
     }
 }

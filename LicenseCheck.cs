@@ -1,13 +1,12 @@
 ﻿using LicenseChecker.Helpers;
+using Microsoft.Extensions.Logging;
+using Microsoft.Win32;
 using Newtonsoft.Json;
 using System;
-using System.Collections.Generic;
-using System.ComponentModel;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace LicenseChecker
 {
@@ -15,13 +14,19 @@ namespace LicenseChecker
     {
         public readonly RsaHelper Rsa = new RsaHelper();
         private readonly DeviceInfo deviceInfo;
+        private readonly ILogger<LicenseCheck> logger;
 
-        public LicenseCheck(DeviceInfo info)
+        public LicenseCheck()
         {
-            deviceInfo = info;
+            deviceInfo = new DeviceInfo();
         }
-        
-        readonly byte[] _pkBytes = new byte[]
+        public LicenseCheck(ILogger<LicenseCheck> logger)
+        {
+            deviceInfo = new DeviceInfo();
+            this.logger = logger;
+        }
+
+        readonly byte[] _pkBytes =
         {
             0x3C, 0x52, 0x53, 0x41, 0x4B, 0x65, 0x79, 0x56, 0x61, 0x6C, 0x75, 0x65, 0x3E, 0x3C, 0x4D, 0x6F, 0x64, 0x75,
             0x6C, 0x75, 0x73, 0x3E, 0x79, 0x62, 0x51, 0x47, 0x57, 0x4F, 0x38, 0x31, 0x52, 0x47, 0x4B, 0x6B, 0x69, 0x4C,
@@ -115,17 +120,78 @@ namespace LicenseChecker
             return license;
         }
 
-        public bool Correct(string code)
+        public bool Correct(string code, string productName = "")
         {
             var serial = deviceInfo.SerialNumber();
-            if (string.IsNullOrEmpty(code)) return false;
+            if (string.IsNullOrEmpty(code))
+            {
+                logger?.LogInformation("未查询到授权码!");
+                return false;
+            }
             var license = Decrypt(new EncryptDetails(code));
-            if (license == null) return false;
-            if (DateTime.Now >= license.EndDate || DateTime.Now < license.BeginDate) return false;
-            if (!license.MachineCode.Equals(serial)) return false;
-            if (license.IsBlock) return false;
-            if (license.Count != -1) return false;
+            if (license == null)
+            {
+                logger?.LogInformation("解析失败!");
+                return false;
+            }
+
+            if (DateTime.Now >= license.EndDate || DateTime.Now < license.BeginDate)
+            {
+                logger?.LogInformation("超期!");
+                return false;
+            }
+
+            if (!license.ProductName.Equals(productName))
+            {
+                logger?.LogInformation($"未验证的序列号!");
+                return false;
+            }
+
+            if (!license.MachineCode.Equals(serial))
+            {
+                logger?.LogInformation($"非本机激活码[{license.MachineCode}]!");
+                return false;
+            }
+
+            if (license.IsBlock)
+            {
+                logger?.LogInformation("异常,请联系制造商!");
+                return false;
+            }
+
+            if (license.Count != -1)
+            {
+                logger?.LogInformation("异常!");
+                return false;
+            }
+            logger?.LogInformation("通过!");
             return true;
+        }
+
+        public bool CheckProduct(string product)
+        {
+            //reg add HKLM\SOFTWARE\WOW6432Node\JKSoft /v product /t REG_SZ /d "激活码"
+            var SOFTWARE = Registry.LocalMachine.OpenSubKey("SOFTWARE");
+            var hasSubKey = SOFTWARE.GetSubKeyNames()!.Contains("JKSoft");
+            if (!hasSubKey) return false;
+
+            var regKey = SOFTWARE.OpenSubKey("JKSoft");
+            if (regKey == null) return false;
+
+            var hasValue = regKey.GetValueNames().Contains(product);
+            if (!hasValue) return false;
+
+            var value = regKey.GetValue(product, "-1").ToString();
+            if (value.Equals("-1")) return false;
+
+            return Correct(value, product);
+        }
+
+        public void GenerateMachineCode()
+        {
+            var content = $"您的机器码:[{GetSerialNumber()}]{Environment.NewLine}请发送机器码给我们!";
+            File.WriteAllText("register.txt", content);
+            Process.Start("register.txt");
         }
 
         public string GetSerialNumber() => deviceInfo.SerialNumber();
@@ -157,6 +223,7 @@ namespace LicenseChecker
     public class License
     {
         public string Id { get; set; }
+        public string ProductName { get; set; }
         public string Email { get; set; }
         public string Name { get; set; }
         public string MachineCode { get; set; }
