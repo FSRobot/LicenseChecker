@@ -122,7 +122,7 @@ namespace LicenseChecker
 
         public bool Correct(string code, string productName = "")
         {
-            var serial = deviceInfo.SerialNumber();
+            var serial = deviceInfo.SerialNumber(productName);
             if (string.IsNullOrEmpty(code))
             {
                 logger?.LogInformation("未查询到授权码!");
@@ -187,14 +187,14 @@ namespace LicenseChecker
             return Correct(value, product);
         }
 
-        public void GenerateMachineCode()
+        public void GenerateMachineCode(string productName)
         {
-            var content = $"您的机器码:[{GetSerialNumber()}]{Environment.NewLine}请发送机器码给我们!";
+            var content = $"您的机器码:[{GetSerialNumber(productName)}]{Environment.NewLine}请发送机器码给我们!";
             File.WriteAllText("register.txt", content);
             Process.Start("register.txt");
         }
 
-        public string GetSerialNumber() => deviceInfo.SerialNumber();
+        public string GetSerialNumber(string productName) => deviceInfo.SerialNumber(productName);
     }
 
     public class EncryptDetails

@@ -12,9 +12,9 @@ namespace LicenseChecker
         {
         }
 
-        public string SerialNumber()
+        public string SerialNumber(string productName)
         {
-            var serial = $"{GetSerialNumber()}{Assembly.GetEntryAssembly().GetName().Name}{GetDiskDriveSerial().Trim()}";
+            var serial = $"{GetSerialNumber()}{productName}{GetDiskDriveSerial().Trim()}";
             serial = Helpers.AesHelper.Encrypt(serial, "MachineCode");
             return serial;
         }
