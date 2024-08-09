@@ -351,6 +351,26 @@ namespace LicenseChecker
 
 
         /// <summary>
+        /// 删除产品
+        /// </summary>
+        /// <param name="productName"></param>
+        public static void RemoveProduct(string productName)
+        {
+            using RegistryKey localMachine64 =
+                RegistryKey.OpenBaseKey(RegistryHive.LocalMachine, RegistryView.Registry64);
+            using RegistryKey softwareNode = localMachine64.OpenSubKey("SOFTWARE", writable: false);
+            var software = softwareNode.OpenSubKey("WOW6432Node");
+            var hasSubKey = software.GetSubKeyNames()!.Contains("JKSoft");
+            if (!hasSubKey) return;
+
+            using var regKey = software.OpenSubKey("JKSoft", true);
+            if (regKey == null) return;
+
+            if (regKey.GetValue(productName) == null) return;
+            regKey.DeleteValue(productName);
+        }
+
+        /// <summary>
         /// 设置Ticks
         /// </summary>
         /// <param name="time"></param>
